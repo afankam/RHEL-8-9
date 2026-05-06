@@ -1,0 +1,28 @@
+Enterprise Configuration of SSSD
+# vim /etc/sssd/sssd.conf
+[sssd]
+domains = DOMAIN_NAME.COM
+config_file_version = 2
+services = nss, pam
+
+[nss]
+default_shell = /bin/bash
+fallback_homedir = /home/%u
+
+[domain/DOMAIN_NAME.COM]
+ad_domain = DOMAIN_NAME.COM
+krb5_realm = DOMAIN_NAME.COM
+realmd_tags = manages-system joined-with-samba
+cache_credentials = True
+min_id = 1000
+id_provider = ad
+krb5_store_password_if_offline = True
+ldap_id_mapping = True
+use_fully_qualified_names = False
+access_provider = ad
+ad_enable_gc = False
+ad_gpo_ignore_unreadable = True
+ad_gpo_access_control = permissive
+default_shell = /bin/bash
+dyndns_update = False                                                                                                                                                                                           
+debug_level = 9 
