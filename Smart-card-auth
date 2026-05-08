@@ -1,4 +1,4 @@
-This document describle the implementation of smart card authentication on RHEL 8 & 9.
+This document describle the implementation of smart card authentication on RHEL 8/9 at Enterpise Level with a focus on DoD.
 
 Smart card authentication replaces passwords with physical tokens containing private keys. Users insert the card and enter a PIN to achieve two-factor security. Administrators use specific tools to manage card content and configure Identity Management servers (IPA or AD) and clients to support these workflows.
 Requirements:
@@ -19,15 +19,28 @@ Requirements:
 1. Install required RPM packages and theirs depencies
 # dnf install -y krb5-pkinit opensc pcsc-lite pcsc-tool
 
-2. Add RootCA and any Local Domain Controlled Cert to the system trust store. 
+2. Add RootCA and any Local Domain Controller Certs to the system trust store. 
+# cat DC-01.pem >> RootCA.pem
+# cat DC-02.pem >> RootCA.pem
 # cp RootCA.pem DC.pem /etc/pki/ca-trust/source/anchors
 
 3. Create a certificate bundle of the RootCA and local DC and add the CA bundle to the System Security Services Daemon (SSSD) trust store.
 # cat RootCA.pem DC.pem > /etc/sssd/pki/sssd_auth_ca_db.pem
-# cat local_DC_(s)_Crt.pem >> /etc/sssd/pki/sssd_auth_ca_db.pem
+# cat local_DC_(s)_Crt.pem >> /etc/sssd/pki/sssd_auth_ca_db.pem   ## NOte: this step could be ignored if all DCs certs were added to the RootCA.pem file.
 
 4. Extract a user CAC certificate from Windows ActivClient console or Certmgr
+
+***** WINDOWS ********
 certmgr > Personal > Cerficates > select cert with smart card logon intended purposes > copy to file (saved as user_cert.dem)
+
+
+***** LINUX **********
+Insert CAC in reader them use PKCS11-tool list certs obects
+# pkcs11-tool -O --type cert
+copy cert to a file in DER format
+# pkcs11-tool --read-object --id 01 --type cert --output-file user_cert.der
+convert user cert into PEM
+# openssl x509 -inform DER -in user_cert.der -outform PEM > user_cert.pem
 
 5. Transfer user's CAC certification from window to location on Linux or distributed file system.
 #sftp user_name@workstation
@@ -53,26 +66,26 @@ pkinit_anchors = FILE:/etc/pki/ca-trust/source/anchors/RootCA.pem DC.pem
 [realms]
 DOMAIN_NAME = {
   pkinit_anchors = FILE:/etc/sssd/pki/sssd_auth_ca_db.pem
-  pkinit_kdc_hostname = AD.DOMAIN_NAME
-  pkinit_kdc_hostname = AD.DOMAIN_NAME
+  pkinit_kdc_hostname = DC-01.DOMAIN_NAME
+  pkinit_kdc_hostname = DC-02.DOMAIN_NAME
 }
 
 9. Add the lines below in a drop in file in SSSD auxilliary directory for smarth card authentication
 # vim /etc/sssd/conf.d/smart-card-auth.conf
 [domain/DOMAIN_NAME]
-krb5_auth_timeout = 60
+krb5_auth_timeout = 300
 auth_provider = ad
 
 [pam]
 pam_cert_auth = True
-p11_child_timeout = 60
-debug_level = 9
+p11_child_timeout = 300
+
 
 [certmap/DOMAIN_NAME/smartcard_rule]
 debug_level = 9
-#matchrule = "<ISSUER>CN=DOD ID CA-xxx"
+#matchrule = "<ISSUER>CN=DOD ID CA-.*"
 #matchrule = <EKU>msScLogin,clientAuth,pkinit
-matchrule = <ISSUER>CN=DOD ID CA-xxx<EKU>msScLogin,clientAuth,pkinit
+matchrule = <ISSUER>CN=DOD ID CA-.*<EKU>msScLogin,clientAuth,pkinit              ## catch all CA rule
 maprule = (userPrincipalName={subject_principal})
 domains = DOMAIN_NAME
 
