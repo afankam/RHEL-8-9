@@ -62,6 +62,7 @@ convert user cert into PEM
 # vim /etc/krb5.conf.d/smart-card-auth.conf
 [libdefaults]
 pkinit_anchors = FILE:/etc/pki/ca-trust/source/anchors/RootCA.pem DC.pem
+noaddresses = true         ## (might need this if using NAT or PROXY)
 
 [realms]
 DOMAIN_NAME = {
@@ -75,6 +76,9 @@ DOMAIN_NAME = {
 [domain/DOMAIN_NAME]
 krb5_auth_timeout = 300
 auth_provider = ad
+
+[sssd]
+certificate_verification = no_ocsp           ## (might need to disable CRL check as it breaks mapping at login)
 
 [pam]
 pam_cert_auth = True
